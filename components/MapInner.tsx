@@ -23,16 +23,15 @@ export default function MapInner({ info, status, waterLevel }: MapInnerProps) {
   const slope = info.kemiringan || 10.5;
   const statusColor = status.color || '#2196F3';
 
-  // Kalkulasi Trigonometri: radius = tinggi air * tan(kemiringan)
+  // Kalkulasi Trigonometri: radius = tinggi air * tan(kemiringan) * 10
   const exactRadiusM = calculateTrigFloodRadius(waterLevel, slope);
   
   // Radius batas Siaga (20 cm) sebagai garis referensi visual di peta
   const siagaRadiusM = calculateTrigFloodRadius(20, slope);
 
-  // Ukuran visual lingkaran di peta agar jelas terlihat oleh mata di perangkat mobile
-  // Jika radius kecil (misal < 25m), kita beri tampilan visual proporsional minimal 25m agar tidak terlalu kecil
-  const visualRadiusM = exactRadiusM > 0 ? Math.max(25, exactRadiusM) : 12;
-  const visualSiagaRadiusM = Math.max(40, siagaRadiusM);
+  // Ukuran visual lingkaran di peta
+  const visualRadiusM = exactRadiusM > 0 ? exactRadiusM : 15;
+  const visualSiagaRadiusM = Math.max(35, siagaRadiusM);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -98,7 +97,7 @@ export default function MapInner({ info, status, waterLevel }: MapInnerProps) {
               Radius Luapan: ${exactRadiusM} meter
             </span><br/>
             <span style="font-size: 10px; color: #64748b;">
-              Rumus: ${waterLevel} cm × tan(${slope}°)
+              Rumus: ${waterLevel} cm × tan(${slope}°) × 10
             </span>
           </div>
         </div>

@@ -16,12 +16,12 @@ export const THRESHOLD_WARNING_MS = 5 * 60 * 1000; // 2 - 5 menit
 
 /**
  * Menghitung radius luapan banjir menggunakan trigonometri kemiringan lereng:
- * radius = tinggi air * tan(kemiringan)
+ * radius = tinggi air * tan(kemiringan) * 10
  */
 export function calculateTrigFloodRadius(waterLevelCm: number, slopeDeg: number = 10.5): number {
   if (waterLevelCm <= 0 || !slopeDeg) return 0;
   const slopeRad = (slopeDeg * Math.PI) / 180;
-  const radius = waterLevelCm * Math.tan(slopeRad);
+  const radius = waterLevelCm * Math.tan(slopeRad) * 10;
   return Math.round(radius * 10) / 10;
 }
 

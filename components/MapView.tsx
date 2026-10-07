@@ -65,7 +65,7 @@ export const MapView: React.FC<MapViewProps> = ({ info, status, waterLevel }) =>
             <strong className="text-amber-700">{slope}°</strong>
           </div>
           <div className="pt-1 mt-1 border-t border-slate-100 text-[10px] text-slate-400 font-mono">
-            R = {waterLevel} × tan({slope}°)
+            R = {waterLevel} × tan({slope}°) × 10
           </div>
         </div>
 
@@ -86,7 +86,7 @@ export const MapView: React.FC<MapViewProps> = ({ info, status, waterLevel }) =>
       <div className="mt-3 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-1.5">
         <span>Wilayah: <strong>{info.region_name}</strong> ({info.latitude}, {info.longitude})</span>
         <span className="text-slate-400 italic">
-          Berdasarkan trigonometri elevasi lereng dataran
+          Rumus: R = Air ({waterLevel} cm) × tan({slope}°) × 10 = {radiusM}m
         </span>
       </div>
     </div>
