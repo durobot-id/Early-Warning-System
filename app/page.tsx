@@ -23,7 +23,6 @@ import { WeatherCard } from '@/components/WeatherCard';
 import { DeviceStatusCard } from '@/components/DeviceStatusCard';
 import { EmergencyBanner } from '@/components/EmergencyBanner';
 import { InstallPwaPrompt } from '@/components/InstallPwaPrompt';
-import { NotificationPermissionCard } from '@/components/NotificationPermission';
 
 export default function HomePage() {
   const {
@@ -207,9 +206,6 @@ export default function HomePage() {
             </div>
           </Link>
         </section>
-
-        {/* Pengaturan Izin & Token FCM */}
-        <NotificationPermissionCard />
       </main>
 
       {/* Modal Install PWA */}
