@@ -15,7 +15,7 @@ const CACHE_TTL_MS = 15 * 60 * 1000; // 15 menit cache
 export async function fetchBMKGWeatherData(
   lat: number = -6.68,
   lon: number = 106.9383,
-  regionName: string = 'Cisarua'
+  regionName: string = ''
 ): Promise<WeatherData> {
   const now = Date.now();
   const cacheKey = `${lat.toFixed(2)}-${lon.toFixed(2)}`;
@@ -24,6 +24,8 @@ export async function fetchBMKGWeatherData(
   if (memoryCache && memoryCache.key === cacheKey && (now - memoryCache.timestamp) < CACHE_TTL_MS) {
     return memoryCache.data;
   }
+
+  const effectiveLocation = regionName ? `${regionName} & Sekitarnya` : 'Wilayah Sensor';
 
   try {
     const response = await fetch(
@@ -36,16 +38,16 @@ export async function fetchBMKGWeatherData(
       const current = json.current;
       const hourly = json.hourly;
 
-      const codeToCondition = (code: number): { text: string; icon: string } => {
-        if (code === 0) return { text: 'Cerah', icon: '☀️' };
-        if (code <= 3) return { text: 'Cerah Berawan', icon: '⛅' };
-        if (code <= 48) return { text: 'Berkabut', icon: '🌫️' };
-        if (code <= 55) return { text: 'Gerimis', icon: '🌦️' };
-        if (code <= 65) return { text: 'Hujan Sedang', icon: '🌧️' };
-        if (code <= 77) return { text: 'Hujan Salju/Es', icon: '🌨️' };
-        if (code <= 82) return { text: 'Hujan Lebat', icon: '🌧️' };
-        if (code <= 99) return { text: 'Hujan Petir', icon: '⛈️' };
-        return { text: 'Berawan', icon: '☁️' };
+      const codeToCondition = (code: number): { text: string; iconKey: string } => {
+        if (code === 0) return { text: 'Cerah', iconKey: 'sun' };
+        if (code <= 3) return { text: 'Cerah Berawan', iconKey: 'cloud-sun' };
+        if (code <= 48) return { text: 'Berkabut', iconKey: 'fog' };
+        if (code <= 55) return { text: 'Gerimis', iconKey: 'drizzle' };
+        if (code <= 65) return { text: 'Hujan Sedang', iconKey: 'rain' };
+        if (code <= 77) return { text: 'Hujan Es', iconKey: 'rain' };
+        if (code <= 82) return { text: 'Hujan Lebat', iconKey: 'rain' };
+        if (code <= 99) return { text: 'Hujan Petir', iconKey: 'thunder' };
+        return { text: 'Berawan', iconKey: 'cloud' };
       };
 
       const currCondition = codeToCondition(current?.weather_code || 0);
@@ -59,13 +61,13 @@ export async function fetchBMKGWeatherData(
             time: `${t.getHours().toString().padStart(2, '0')}:00`,
             temp: Math.round(hourly.temperature_2m[i]),
             condition: cond.text,
-            icon: cond.icon,
+            icon: cond.iconKey,
           });
         }
       }
 
       const weatherResult: WeatherData = {
-        locationName: regionName ? `${regionName} & Sekitarnya` : 'Lokasi Sensor',
+        locationName: effectiveLocation,
         condition: currCondition.text,
         temperature: Math.round(current?.temperature_2m ?? 24),
         humidity: Math.round(current?.relative_humidity_2m ?? 85),
@@ -74,10 +76,10 @@ export async function fetchBMKGWeatherData(
         rainfall: current?.precipitation || 0,
         updatedAt: new Date().toISOString(),
         hourly: hourlyItems.length > 0 ? hourlyItems : [
-          { time: '21:00', temp: 24, condition: 'Hujan Sedang', icon: '🌧️' },
-          { time: '22:00', temp: 23, condition: 'Hujan Ringan', icon: '🌦️' },
-          { time: '23:00', temp: 23, condition: 'Berawan', icon: '☁️' },
-          { time: '00:00', temp: 22, condition: 'Berawan', icon: '☁️' },
+          { time: '21:00', temp: 24, condition: 'Hujan Sedang', icon: 'rain' },
+          { time: '22:00', temp: 23, condition: 'Hujan Ringan', icon: 'drizzle' },
+          { time: '23:00', temp: 23, condition: 'Berawan', icon: 'cloud' },
+          { time: '00:00', temp: 22, condition: 'Berawan', icon: 'cloud' },
         ],
       };
 
@@ -95,7 +97,7 @@ export async function fetchBMKGWeatherData(
 
   // Fallback graceful
   return {
-    locationName: regionName || 'Cisarua',
+    locationName: effectiveLocation,
     condition: 'Hujan Ringan',
     temperature: 24,
     humidity: 86,
@@ -104,10 +106,10 @@ export async function fetchBMKGWeatherData(
     rainfall: 2.1,
     updatedAt: new Date().toISOString(),
     hourly: [
-      { time: '21:00', temp: 24, condition: 'Hujan Sedang', icon: '🌧️' },
-      { time: '22:00', temp: 23, condition: 'Hujan Ringan', icon: '🌦️' },
-      { time: '23:00', temp: 23, condition: 'Berawan', icon: '☁️' },
-      { time: '00:00', temp: 22, condition: 'Berawan', icon: '☁️' },
+      { time: '21:00', temp: 24, condition: 'Hujan Sedang', icon: 'rain' },
+      { time: '22:00', temp: 23, condition: 'Hujan Ringan', icon: 'drizzle' },
+      { time: '23:00', temp: 23, condition: 'Berawan', icon: 'cloud' },
+      { time: '00:00', temp: 22, condition: 'Berawan', icon: 'cloud' },
     ],
   };
 }

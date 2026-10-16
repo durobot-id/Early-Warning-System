@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Sliders, MapPin, Gauge, ShieldCheck, Clock, Radio, Cpu, Triangle } from 'lucide-react';
+import { Sliders, MapPin, Gauge, ShieldCheck, Clock, Radio, Cpu } from 'lucide-react';
 import { FirebaseInfo, FirebaseLive, FirebaseConfig, DeviceOnlineState } from '@/lib/types';
 import { formatCoordinate, formatDateTimeID } from '@/lib/utils';
 import { calculateTrigFloodRadius } from '@/lib/firebase-service';
@@ -21,23 +21,26 @@ export const DeviceInfoCard: React.FC<DeviceInfoCardProps> = ({
 }) => {
   const slope = info.kemiringan || 10.5;
   const calculatedRadius = calculateTrigFloodRadius(live.water_level_cm, slope);
+  const regionLabel = info.region_name || 'Wilayah Sensor';
 
   return (
-    <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+    <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs">
       <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-          <Sliders className="w-4 h-4 text-blue-500" />
+          <Sliders className="w-4 h-4 text-blue-600" />
           Informasi Alat & Konfigurasi
         </h3>
-        <span className="text-xs font-mono font-semibold px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-md border border-blue-200/60">
-          BMKG ADM4: {info.bmkg_adm4}
-        </span>
+        {info.bmkg_adm4 && (
+          <span className="text-xs font-mono font-semibold px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-md border border-blue-200/60">
+            ADM4: {info.bmkg_adm4}
+          </span>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 text-xs sm:text-sm">
         <div className="flex justify-between py-1 border-b border-slate-50">
-          <span className="text-slate-500">Wilayah Sensor</span>
-          <span className="font-semibold text-slate-900">{info.region_name}</span>
+          <span className="text-slate-500">Wilayah Pemantauan</span>
+          <span className="font-semibold text-slate-900">{regionLabel}</span>
         </div>
 
         <div className="flex justify-between py-1 border-b border-slate-50">
@@ -48,22 +51,14 @@ export const DeviceInfoCard: React.FC<DeviceInfoCardProps> = ({
         </div>
 
         <div className="flex justify-between py-1 border-b border-slate-50">
-          <span className="text-slate-500">Kemiringan Dataran</span>
-          <span className="font-bold text-amber-700 flex items-center gap-1">
-            <Triangle className="w-3.5 h-3.5" />
-            {slope}°
-          </span>
-        </div>
-
-        <div className="flex justify-between py-1 border-b border-slate-50">
-          <span className="text-slate-500">Radius Luapan Trigonometri</span>
+          <span className="text-slate-500">Radius Luapan Air</span>
           <span className="font-bold text-blue-600">
             {calculatedRadius} meter
           </span>
         </div>
 
         <div className="flex justify-between py-1 border-b border-slate-50">
-          <span className="text-slate-500">Koordinat (Lat, Lon)</span>
+          <span className="text-slate-500">Koordinat Sensor</span>
           <span className="font-mono text-slate-800">
             {formatCoordinate(info.latitude)}, {formatCoordinate(info.longitude)}
           </span>
@@ -84,7 +79,7 @@ export const DeviceInfoCard: React.FC<DeviceInfoCardProps> = ({
         </div>
 
         <div className="flex justify-between py-1 border-b border-slate-50">
-          <span className="text-slate-500">Jarak Bacaan (Distance)</span>
+          <span className="text-slate-500">Jarak Pantau (Distance)</span>
           <span className="font-semibold text-blue-600">
             {live.distance_cm} cm
           </span>
@@ -93,14 +88,21 @@ export const DeviceInfoCard: React.FC<DeviceInfoCardProps> = ({
         <div className="flex justify-between py-1 border-b border-slate-50">
           <span className="text-slate-500">Status Kalibrasi</span>
           <span className="font-semibold text-emerald-600 uppercase">
-            {config.calibrate_status === 'ok' ? 'OK' : config.calibrate_status}
+            {config.calibrate_status === 'ok' ? 'Normal (OK)' : config.calibrate_status}
           </span>
         </div>
 
         <div className="flex justify-between py-1 border-b border-slate-50">
-          <span className="text-slate-500">Waktu Kalibrasi</span>
+          <span className="text-slate-500">Waktu Kalibrasi Terakhir</span>
           <span className="text-slate-700">
             {config.calibrated_at ? formatDateTimeID(config.calibrated_at) : 'Tidak tersedia'}
+          </span>
+        </div>
+
+        <div className="flex justify-between py-1 border-b border-slate-50">
+          <span className="text-slate-500">Pembaruan Heartbeat</span>
+          <span className="text-slate-700">
+            {live.updated_at ? formatDateTimeID(live.updated_at, false) : 'Tidak tersedia'}
           </span>
         </div>
       </div>

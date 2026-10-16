@@ -1,7 +1,17 @@
 'use client';
 
 import React from 'react';
-import { CloudRain, Wind, Droplet, Thermometer, Compass, Clock } from 'lucide-react';
+import {
+  CloudRain,
+  Wind,
+  Droplet,
+  Compass,
+  Sun,
+  CloudSun,
+  CloudLightning,
+  CloudFog,
+  Cloud,
+} from 'lucide-react';
 import { WeatherData } from '@/lib/types';
 
 interface WeatherCardProps {
@@ -10,6 +20,26 @@ interface WeatherCardProps {
 }
 
 export const WeatherCard: React.FC<WeatherCardProps> = ({ weather, isLoading }) => {
+  const getWeatherIcon = (keyOrCondition: string, className: string = 'w-6 h-6') => {
+    const text = (keyOrCondition || '').toLowerCase();
+    if (text.includes('thunder') || text.includes('petir')) {
+      return <CloudLightning className={`${className} text-amber-500`} />;
+    }
+    if (text.includes('rain') || text.includes('hujan') || text.includes('drizzle') || text.includes('gerimis')) {
+      return <CloudRain className={`${className} text-blue-500`} />;
+    }
+    if (text.includes('sun') || text.includes('cerah berawan') || text.includes('cloud-sun')) {
+      return <CloudSun className={`${className} text-amber-500`} />;
+    }
+    if (text === 'cerah') {
+      return <Sun className={`${className} text-amber-500`} />;
+    }
+    if (text.includes('fog') || text.includes('kabut')) {
+      return <CloudFog className={`${className} text-slate-400`} />;
+    }
+    return <Cloud className={`${className} text-slate-400`} />;
+  };
+
   if (isLoading || !weather) {
     return (
       <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs animate-pulse">
@@ -45,8 +75,8 @@ export const WeatherCard: React.FC<WeatherCardProps> = ({ weather, isLoading }) 
               {weather.temperature}°C
             </p>
           </div>
-          <div className="text-4xl filter drop-shadow-sm">
-            {weather.condition.toLowerCase().includes('hujan') ? '🌧️' : '⛅'}
+          <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center">
+            {getWeatherIcon(weather.condition, 'w-8 h-8')}
           </div>
         </div>
 
@@ -85,9 +115,11 @@ export const WeatherCard: React.FC<WeatherCardProps> = ({ weather, isLoading }) 
             </span>
             <div className="grid grid-cols-4 gap-1.5">
               {weather.hourly.map((item, idx) => (
-                <div key={idx} className="bg-slate-50/80 rounded-xl p-1.5 text-center">
+                <div key={idx} className="bg-slate-50/80 rounded-xl p-1.5 text-center flex flex-col items-center">
                   <span className="text-[10px] font-medium text-slate-400 block">{item.time}</span>
-                  <span className="text-lg my-0.5 block">{item.icon}</span>
+                  <div className="my-1">
+                    {getWeatherIcon(item.icon || item.condition, 'w-4 h-4')}
+                  </div>
                   <span className="text-xs font-bold text-slate-700 block">{item.temp}°</span>
                 </div>
               ))}
@@ -97,7 +129,7 @@ export const WeatherCard: React.FC<WeatherCardProps> = ({ weather, isLoading }) 
       </div>
 
       <div className="pt-2 text-[10px] text-slate-400 text-right">
-        Data BMKG Meteorologi Open Data
+        Data BMKG Meteorologi Terbuka
       </div>
     </div>
   );

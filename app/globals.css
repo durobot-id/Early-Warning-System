@@ -9,6 +9,11 @@
   --bg-app: #F8FAFC;
 }
 
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
 body {
   background-color: var(--bg-app);
   color: #1E293B;

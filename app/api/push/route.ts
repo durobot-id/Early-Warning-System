@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       }
 
       const result = await dispatchWebPush({
-        title: title || '⚠️ Peringatan EWS',
+        title: title || 'Peringatan EWS',
         message: message || 'Terjadi perubahan signifikan pada level air.',
         severity: severity || 'warning',
         water_level_cm: water_level_cm || 0,

@@ -34,7 +34,7 @@ export const InstallPwaPrompt: React.FC<InstallPwaPromptProps> = ({
         </div>
 
         <h3 className="text-base font-bold text-slate-900">
-          📱 Install EWS ke Perangkat
+          Install EWS ke Perangkat
         </h3>
 
         <p className="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">

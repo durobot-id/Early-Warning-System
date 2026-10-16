@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { EWSProvider } from '@/lib/EWSContext';
+import { BottomNav } from '@/components/BottomNav';
 
 export const metadata: Metadata = {
   title: 'EWS — Early Warning System',
@@ -32,7 +34,12 @@ export default function RootLayout({
   return (
     <html lang="id">
       <body className="min-h-screen bg-slate-50 text-slate-800 antialiased selection:bg-blue-100 selection:text-blue-700">
-        {children}
+        <EWSProvider>
+          <div className="pb-20">
+            {children}
+          </div>
+          <BottomNav />
+        </EWSProvider>
       </body>
     </html>
   );

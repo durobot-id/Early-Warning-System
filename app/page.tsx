@@ -1,115 +1,48 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
-import { Header } from '@/components/Header';
+import React, { useState } from 'react';
+import Link from 'next/link';
+import {
+  Waves,
+  Download,
+  MapPin,
+  TrendingUp,
+  AlertTriangle,
+  PhoneCall,
+  BookOpen,
+  ArrowRight,
+  ShieldAlert,
+  Activity,
+  CloudRain,
+} from 'lucide-react';
+import { useEWS } from '@/lib/EWSContext';
 import { FloodStatusCard } from '@/components/FloodStatusCard';
 import { WaterLevelCard } from '@/components/WaterLevelCard';
 import { PredictionCard } from '@/components/PredictionCard';
 import { WeatherCard } from '@/components/WeatherCard';
 import { DeviceStatusCard } from '@/components/DeviceStatusCard';
-import { DeviceInfoCard } from '@/components/DeviceInfoCard';
-import { MapView } from '@/components/MapView';
-import { WaterChart } from '@/components/WaterChart';
-import { NotificationHistory } from '@/components/NotificationHistory';
-import { CalibrationModal } from '@/components/CalibrationModal';
+import { EmergencyBanner } from '@/components/EmergencyBanner';
 import { InstallPwaPrompt } from '@/components/InstallPwaPrompt';
 import { NotificationPermissionCard } from '@/components/NotificationPermission';
 
-import {
-  subscribeToEWSData,
-  determineDeviceState,
-  EWSAppData,
-} from '@/lib/firebase-service';
-import { calculateFloodStatus } from '@/lib/status-service';
-import { calculatePrediction } from '@/lib/prediction-service';
-import { WeatherData } from '@/lib/types';
-import { Wrench } from 'lucide-react';
-
 export default function HomePage() {
-  // 1. Data State dari Firebase
-  const [appData, setAppData] = useState<EWSAppData | null>(null);
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [isWeatherLoading, setIsWeatherLoading] = useState<boolean>(true);
+  const {
+    appData,
+    weather,
+    isWeatherLoading,
+    activeStatus,
+    prediction,
+    deviceState,
+    currentWaterLevel,
+    previousWaterLevel,
+    floodRadiusM,
+  } = useEWS();
 
-  // 2. State PWA & Notifikasi
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  // PWA State
   const [showInstallPrompt, setShowInstallPrompt] = useState<boolean>(false);
-  const [isIosDevice, setIsIosDevice] = useState<boolean>(false);
   const [notificationPerm, setNotificationPerm] = useState<NotificationPermission>('default');
   const [isRegisteringPush, setIsRegisteringPush] = useState<boolean>(false);
-  const [isSendingTestPush, setIsSendingTestPush] = useState<boolean>(false);
 
-  // 3. State Kalibrasi
-  const [isCalibrationModalOpen, setIsCalibrationModalOpen] = useState<boolean>(false);
-  const [calibrationStatus, setCalibrationStatus] = useState<
-    'idle' | 'processing' | 'success' | 'failed' | 'timeout'
-  >('idle');
-  const [calibrationMsg, setCalibrationMsg] = useState<string>('');
-
-  // Setup Listener Firebase Realtime & Service Worker
-  useEffect(() => {
-    // Daftarkan service worker untuk PWA
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((reg) => {
-          console.log('EWS Service Worker registered:', reg.scope);
-        })
-        .catch((err) => {
-          console.warn('Service Worker registration failed:', err);
-        });
-
-      if ('Notification' in window) {
-        setNotificationPerm(Notification.permission);
-      }
-
-      const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-      setIsIosDevice(isIos);
-    }
-
-    const handleBeforeInstall = (e: any) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-
-    // Subscribe Firebase Realtime Data Aktual
-    const unsubscribe = subscribeToEWSData((data) => {
-      setAppData(data);
-    });
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
-      unsubscribe();
-    };
-  }, []);
-
-  // Fetch Cuaca BMKG berdasarkan info lokasi dari Firebase
-  useEffect(() => {
-    async function loadWeather() {
-      try {
-        setIsWeatherLoading(true);
-        const lat = appData?.info?.latitude ?? -6.68;
-        const lon = appData?.info?.longitude ?? 106.9383;
-        const region = appData?.info?.region_name ?? 'Cisarua';
-        const res = await fetch(`/api/weather?lat=${lat}&lon=${lon}&region=${encodeURIComponent(region)}`);
-        const json = await res.json();
-        if (json.success && json.data) {
-          setWeather(json.data);
-        }
-      } catch (err) {
-        console.error('Failed to load BMKG weather:', err);
-      } finally {
-        setIsWeatherLoading(false);
-      }
-    }
-
-    if (appData) {
-      loadWeather();
-    }
-  }, [appData?.info?.latitude, appData?.info?.longitude, appData?.info?.region_name]);
-
-  // Handle Permintaan Izin Push Notification
   const handleRequestPushPermission = async () => {
     if (!('Notification' in window) || !('serviceWorker' in navigator)) {
       alert('Browser ini tidak mendukung Push Notification.');
@@ -149,139 +82,84 @@ export default function HomePage() {
     }
   };
 
-  // Handle Tes Kirim Push Alert
-  const handleSendTestPush = async () => {
-    try {
-      setIsSendingTestPush(true);
-      const res = await fetch('/api/push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'broadcast',
-          force: true,
-          title: '⚠️ Tes Peringatan EWS',
-          message: `Sistem EWS ${appData?.info?.region_name || 'Cisarua'} berhasil terhubung ke perangkat Anda!`,
-          severity: 'warning',
-          water_level_cm: appData?.live?.water_level_cm || 0,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert('Notifikasi tes berhasil dikirim ke perangkat Anda!');
-      }
-    } catch (e) {
-      alert('Gagal mengirimkan notifikasi tes.');
-    } finally {
-      setIsSendingTestPush(false);
-    }
-  };
-
-  const handleInstallPwa = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setDeferredPrompt(null);
-        setShowInstallPrompt(false);
-      }
-    } else {
-      setShowInstallPrompt(true);
-    }
-  };
-
-  const handleTriggerCalibration = async () => {
-    setCalibrationStatus('processing');
-    try {
-      const res = await fetch('/api/calibration', { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        setCalibrationStatus('success');
-        setCalibrationMsg(data.message || 'Sensor berhasil dikalibrasi!');
-      } else {
-        setCalibrationStatus('failed');
-        setCalibrationMsg(data.message || 'Sensor gagal merespons');
-      }
-    } catch (err: any) {
-      setCalibrationStatus('failed');
-      setCalibrationMsg('Gagal menghubungkan ke server kalibrasi');
-    }
-  };
-
-  // 4. Kalkulasi Data Berdasarkan Realtime Firebase
-  const currentWaterLevel = appData?.live?.water_level_cm ?? 0;
-  const previousWaterLevel = appData?.previousWaterLevel ?? 0;
-  const sensorTimestamp = appData?.live?.updated_at ?? Date.now();
-  const deviceState = determineDeviceState(sensorTimestamp);
-
-  const activeStatus = useMemo(() => {
-    return calculateFloodStatus(currentWaterLevel, appData?.statuses);
-  }, [currentWaterLevel, appData?.statuses]);
-
-  const prediction = useMemo(() => {
-    return calculatePrediction({
-      currentWaterLevel,
-      history: appData?.history ?? [],
-      weather,
-      isDeviceOnline: deviceState !== 'OFFLINE',
-    });
-  }, [currentWaterLevel, appData?.history, weather, deviceState]);
-
   if (!appData) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-slate-50 text-slate-600">
         <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
-        <p className="text-sm font-semibold text-slate-700">Menghubungkan ke Firebase Realtime Database...</p>
-        <p className="text-xs text-slate-400 mt-1">Mengambil data live sensor Cisarua</p>
+        <p className="text-sm font-semibold text-slate-700">Menghubungkan ke Sistem EWS...</p>
+        <p className="text-xs text-slate-400 mt-1">Sinkronisasi data sensor realtime</p>
       </div>
     );
   }
 
+  const sensorTimestamp = appData.live?.updated_at ?? Date.now();
+  const regionLabel = appData.info.region_name || 'Wilayah Sensor';
+
   return (
-    <div className="min-h-screen pb-16 bg-slate-50">
-      {/* 1. Header */}
-      <Header
-        isRealtimeConnected={appData.isRealtimeConnected}
-        deviceState={deviceState}
-        onOpenNotifications={() => {
-          const el = document.getElementById('notification-history-section');
-          el?.scrollIntoView({ behavior: 'smooth' });
-        }}
-        onInstallClick={() => setShowInstallPrompt(true)}
-        canInstallPwa={Boolean(deferredPrompt || isIosDevice)}
-        unreadCount={appData.notifications.length}
-      />
-
-      <main className="max-w-7xl mx-auto px-4 py-5 space-y-5">
-        {/* Indikator Status Terhubung ke Firebase Aktual */}
-        <div className="p-3 bg-emerald-50 border border-emerald-200/60 rounded-xl text-xs text-emerald-800 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>
-              <strong>Terhubung Realtime ke Firebase:</strong> Memantau sensor <code>{appData.info.region_name}</code> (ADM4: {appData.info.bmkg_adm4})
-            </span>
+    <div className="min-h-screen bg-slate-50 text-slate-800">
+      {/* Header Mobile-First Ringkas */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 py-3 shadow-xs">
+        <div className="max-w-3xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-blue-400 flex items-center justify-center text-white shadow-xs">
+              <Waves className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-base font-bold tracking-tight text-slate-900 leading-none">
+                  EWS
+                </h1>
+                <span className="text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200/60">
+                  {regionLabel}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 font-medium">Early Warning System</p>
+            </div>
           </div>
-          <span className="text-[10px] font-mono bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">
-            Live Database
-          </span>
+
+          <div className="flex items-center gap-2">
+            {/* Status Online Heartbeat */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-[11px] font-bold text-slate-700">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  deviceState === 'ONLINE'
+                    ? 'bg-emerald-500 animate-pulse'
+                    : deviceState === 'WARNING'
+                    ? 'bg-amber-500'
+                    : 'bg-rose-500'
+                }`}
+              />
+              <span>{deviceState}</span>
+            </div>
+
+            {/* Tombol Install App */}
+            <button
+              onClick={() => setShowInstallPrompt(true)}
+              className="p-2 rounded-lg text-slate-600 hover:text-blue-600 hover:bg-slate-100 active:scale-95 transition-all"
+              title="Pasang sebagai Aplikasi (PWA)"
+              aria-label="Install App"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          </div>
         </div>
+      </header>
 
-        {/* 2. Notification Permission Prompt Card */}
-        <NotificationPermissionCard
-          permission={notificationPerm}
-          onRequestPermission={handleRequestPushPermission}
-          isLoading={isRegisteringPush}
-        />
+      {/* Main Content Beranda: Fokus Bagian Vital */}
+      <main className="max-w-3xl mx-auto px-4 py-4 space-y-4">
+        {/* 1. Banner Peringatan Darurat / Bahaya Otomatis */}
+        <EmergencyBanner />
 
-        {/* 3. Hero Card: Flood Status */}
-        <section aria-label="Status Banjir">
+        {/* 2. Hero Card Status Banjir (Paling Penting!) */}
+        <section aria-label="Status Banjir Utama">
           <FloodStatusCard
             status={activeStatus}
             waterLevel={currentWaterLevel}
           />
         </section>
 
-        {/* 4. Grid Ketinggian Air & Prediksi */}
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* 3. Grid Ketinggian Air & Prediksi Air */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <WaterLevelCard
             currentLevel={currentWaterLevel}
             previousLevel={previousWaterLevel}
@@ -293,97 +171,97 @@ export default function HomePage() {
             prediction={prediction}
             currentLevel={currentWaterLevel}
           />
+        </section>
 
+        {/* 4. Banner Pintas Peta & Radius Luapan */}
+        <Link
+          href="/peta"
+          className="block bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-4 text-white shadow-xs hover:shadow-md transition-all active:scale-[0.99]"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/30">
+                <MapPin className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200">
+                  Pantauan Geospasial
+                </span>
+                <h3 className="text-sm font-bold text-white leading-tight">
+                  Radius Luapan Air: {floodRadiusM} meter
+                </h3>
+                <p className="text-[11px] text-blue-100 mt-0.5">
+                  Lokasi: {regionLabel}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1 text-xs font-bold bg-white/20 px-3 py-1.5 rounded-xl border border-white/30 shrink-0">
+              <span>Buka Peta</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </div>
+          </div>
+        </Link>
+
+        {/* 5. Cuaca BMKG Terdekat */}
+        <section aria-label="Prakiraan Cuaca">
+          <WeatherCard
+            weather={weather}
+            isLoading={isWeatherLoading}
+          />
+        </section>
+
+        {/* 6. Status Hardware & Jaringan */}
+        <section aria-label="Status Alat">
           <DeviceStatusCard
             deviceState={deviceState}
             live={appData.live}
           />
         </section>
 
-        {/* 5. Grid Cuaca BMKG & Peta Lokasi */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <WeatherCard
-            weather={weather}
-            isLoading={isWeatherLoading}
-          />
-
-          <MapView
-            info={appData.info}
-            status={activeStatus}
-            waterLevel={currentWaterLevel}
-          />
-        </section>
-
-        {/* 6. Grafik Riwayat Ketinggian Air (50 Data Points dari Firebase) */}
-        <section aria-label="Grafik Ketinggian Air">
-          <WaterChart
-            history={appData.history}
-            siagaThreshold={
-              appData.statuses.find((s) => s.name.toLowerCase().includes('siaga'))?.min_cm || 20
-            }
-          />
-        </section>
-
-        {/* 7. Grid Informasi Alat & Riwayat Notifikasi */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <DeviceInfoCard
-            info={appData.info}
-            live={appData.live}
-            config={appData.config}
-            deviceState={deviceState}
-          />
-
-          <div id="notification-history-section">
-            <NotificationHistory
-              notifications={appData.notifications}
-              onSendTestNotification={handleSendTestPush}
-              isSendingTest={isSendingTestPush}
-            />
-          </div>
-        </section>
-
-        {/* 8. Tombol Kalibrasi Sensor Card */}
-        <section className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
-              <Wrench className="w-5 h-5" />
+        {/* 7. Quick Actions Card: Edukasi & Bantuan Darurat */}
+        <section className="grid grid-cols-2 gap-2.5">
+          <Link
+            href="/edukasi"
+            className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-blue-300 transition-all flex flex-col justify-between"
+          >
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-2">
+              <BookOpen className="w-4 h-4" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-slate-900">
-                Kalibrasi Sensor Ketinggian
-              </h4>
-              <p className="text-xs text-slate-500">
-                Lakukan penyesuaian titik nol sensor jika terjadi perubahan fisik pada lapangan.
-              </p>
+              <h4 className="text-xs font-bold text-slate-900">Edukasi Bencana</h4>
+              <p className="text-[10px] text-slate-500 mt-0.5">7 Video & Mitigasi</p>
             </div>
-          </div>
+          </Link>
 
-          <button
-            onClick={() => {
-              setCalibrationStatus('idle');
-              setCalibrationMsg('');
-              setIsCalibrationModalOpen(true);
-            }}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-bold transition-all shadow-xs"
+          <Link
+            href="/darurat"
+            className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:border-rose-300 transition-all flex flex-col justify-between"
           >
-            Kalibrasi Sensor
-          </button>
+            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center mb-2">
+              <PhoneCall className="w-4 h-4" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-slate-900">Kontak Darurat</h4>
+              <p className="text-[10px] text-slate-500 mt-0.5">Panggilan Darurat 112</p>
+            </div>
+          </Link>
         </section>
+
+        {/* Prompt Izin Push Alert jika belum aktif */}
+        <NotificationPermissionCard
+          permission={notificationPerm}
+          onRequestPermission={handleRequestPushPermission}
+          isLoading={isRegisteringPush}
+        />
       </main>
 
-      <CalibrationModal
-        isOpen={isCalibrationModalOpen}
-        onClose={() => setIsCalibrationModalOpen(false)}
-        onConfirm={handleTriggerCalibration}
-        status={calibrationStatus}
-        statusMessage={calibrationMsg}
-      />
-
+      {/* Modal Install PWA */}
       <InstallPwaPrompt
         isOpen={showInstallPrompt}
         onClose={() => setShowInstallPrompt(false)}
-        onInstall={handleInstallPwa}
-        isIos={isIosDevice}
+        onInstall={() => setShowInstallPrompt(false)}
+        isIos={false}
       />
     </div>
   );
