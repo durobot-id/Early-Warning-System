@@ -10,6 +10,7 @@ import {
 import { calculateFloodStatus } from './status-service';
 import { calculatePrediction } from './prediction-service';
 import { WeatherData, PredictionResult, FloodStatusConfig, DeviceOnlineState } from './types';
+import { requestFCMToken, onFCMMessage } from './firebase';
 
 interface EWSContextType {
   appData: EWSAppData | null;
@@ -23,6 +24,13 @@ interface EWSContextType {
   previousWaterLevel: number;
   isDangerCondition: boolean;
   dangerReason: string;
+  // FCM Push Notification
+  fcmToken: string | null;
+  fcmPermission: NotificationPermission | 'unsupported';
+  isRequestingFCM: boolean;
+  requestNotificationPermission: () => Promise<string | null>;
+  foregroundAlert: { title: string; body: string } | null;
+  dismissForegroundAlert: () => void;
 }
 
 const EWSContext = createContext<EWSContextType | null>(null);
@@ -32,12 +40,21 @@ export const EWSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [isWeatherLoading, setIsWeatherLoading] = useState<boolean>(true);
 
-  // Subscribe Firebase Realtime Data
+  // FCM States
+  const [fcmToken, setFcmToken] = useState<string | null>(null);
+  const [fcmPermission, setFcmPermission] = useState<NotificationPermission | 'unsupported'>('default');
+  const [isRequestingFCM, setIsRequestingFCM] = useState<boolean>(false);
+  const [foregroundAlert, setForegroundAlert] = useState<{ title: string; body: string } | null>(null);
+
+  // Subscribe Firebase Realtime Data & FCM SW Setup
   useEffect(() => {
-    // Daftarkan Service Worker PWA jika ada
+    // Daftarkan Service Worker PWA & FCM SW
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/firebase-messaging-sw.js').catch((err) => {
+        console.warn('FCM SW registration error:', err);
+      });
       navigator.serviceWorker.register('/sw.js').catch((err) => {
-        console.warn('SW registration failed:', err);
+        console.warn('PWA SW registration error:', err);
       });
     }
 
@@ -49,6 +66,79 @@ export const EWSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubscribe();
     };
   }, []);
+
+  // Cek Status Izin Notifikasi & Listener Foreground FCM
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (!('Notification' in window)) {
+      setFcmPermission('unsupported');
+      return;
+    }
+
+    setFcmPermission(Notification.permission);
+
+    // Cek token tersimpan
+    try {
+      const savedToken = localStorage.getItem('ews_fcm_token');
+      if (savedToken) {
+        setFcmToken(savedToken);
+      }
+    } catch (e) {}
+
+    // Pasang listener pesan foreground
+    let unsubFCM: (() => void) | null = null;
+    onFCMMessage((payload) => {
+      console.log('[EWSContext] Foreground FCM message received:', payload);
+      const title = payload.notification?.title || payload.data?.title || 'Peringatan EWS';
+      const body =
+        payload.notification?.body ||
+        payload.data?.body ||
+        payload.data?.message ||
+        'Terdeteksi perubahan status ketinggian air sensor.';
+
+      setForegroundAlert({ title, body });
+
+      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate([200, 100, 200]);
+        } catch (e) {}
+      }
+    }).then((unsub) => {
+      unsubFCM = unsub;
+    });
+
+    return () => {
+      if (unsubFCM) unsubFCM();
+    };
+  }, []);
+
+  // Fungsi Request Izin FCM
+  const requestNotificationPermission = async (): Promise<string | null> => {
+    setIsRequestingFCM(true);
+    try {
+      const res = await requestFCMToken();
+      if (res.token) {
+        setFcmToken(res.token);
+        setFcmPermission('granted');
+        return res.token;
+      } else {
+        if (typeof window !== 'undefined' && 'Notification' in window) {
+          setFcmPermission(Notification.permission);
+        }
+        return null;
+      }
+    } catch (e) {
+      console.error('Failed to request notification permission:', e);
+      return null;
+    } finally {
+      setIsRequestingFCM(false);
+    }
+  };
+
+  const dismissForegroundAlert = () => {
+    setForegroundAlert(null);
+  };
 
   // Fetch Cuaca BMKG
   useEffect(() => {
@@ -98,9 +188,7 @@ export const EWSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, [currentWaterLevel, appData?.history, weather, deviceState]);
 
-  // Evaluasi Kondisi Bahaya:
-  // Terpenuhi jika status aktif tergolong bahaya (nama mengandung Siaga/Bahaya/Evakuasi atau level >= 20 cm)
-  // ATAU jika prediksi level air dalam 2 jam ke depan mencapai level bahaya (>= 20 cm)
+  // Evaluasi Kondisi Bahaya
   const { isDangerCondition, dangerReason } = useMemo(() => {
     const statusName = (activeStatus.name || '').toLowerCase();
     const isStatusCritical =
@@ -139,6 +227,12 @@ export const EWSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     previousWaterLevel,
     isDangerCondition,
     dangerReason,
+    fcmToken,
+    fcmPermission,
+    isRequestingFCM,
+    requestNotificationPermission,
+    foregroundAlert,
+    dismissForegroundAlert,
   };
 
   return <EWSContext.Provider value={value}>{children}</EWSContext.Provider>;

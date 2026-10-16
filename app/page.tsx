@@ -36,51 +36,42 @@ export default function HomePage() {
     currentWaterLevel,
     previousWaterLevel,
     floodRadiusM,
+    fcmToken,
+    fcmPermission,
+    isRequestingFCM,
+    requestNotificationPermission,
   } = useEWS();
 
   // PWA State
   const [showInstallPrompt, setShowInstallPrompt] = useState<boolean>(false);
-  const [notificationPerm, setNotificationPerm] = useState<NotificationPermission>('default');
-  const [isRegisteringPush, setIsRegisteringPush] = useState<boolean>(false);
+  const [isSendingTestPush, setIsSendingTestPush] = useState<boolean>(false);
 
-  const handleRequestPushPermission = async () => {
-    if (!('Notification' in window) || !('serviceWorker' in navigator)) {
-      alert('Browser ini tidak mendukung Push Notification.');
-      return;
-    }
-
+  const handleSendTestPush = async () => {
     try {
-      setIsRegisteringPush(true);
-      const permission = await Notification.requestPermission();
-      setNotificationPerm(permission);
-
-      if (permission === 'granted') {
-        const reg = await navigator.serviceWorker.ready;
-        const keyRes = await fetch('/api/push');
-        const { publicKey } = await keyRes.json();
-
-        if (publicKey) {
-          const sub = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(publicKey),
-          });
-
-          await fetch('/api/push', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'subscribe',
-              subscription: sub,
-            }),
-          });
-        }
+      setIsSendingTestPush(true);
+      const res = await fetch('/api/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'broadcast',
+          force: true,
+          title: 'Tes Peringatan EWS',
+          message: `Sistem pemantauan EWS ${appData?.info?.region_name || ''} berhasil terhubung ke perangkat Anda.`,
+          severity: 'warning',
+          water_level_cm: currentWaterLevel,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Notifikasi tes berhasil dikirim!');
       }
-    } catch (err) {
-      console.error('Error requesting notification permission:', err);
+    } catch (e) {
+      alert('Gagal mengirimkan notifikasi tes.');
     } finally {
-      setIsRegisteringPush(false);
+      setIsSendingTestPush(false);
     }
   };
+
 
   if (!appData) {
     return (
@@ -248,11 +239,14 @@ export default function HomePage() {
           </Link>
         </section>
 
-        {/* Prompt Izin Push Alert jika belum aktif */}
+        {/* Prompt Izin Push Alert FCM jika belum aktif atau informasi status token */}
         <NotificationPermissionCard
-          permission={notificationPerm}
-          onRequestPermission={handleRequestPushPermission}
-          isLoading={isRegisteringPush}
+          permission={fcmPermission}
+          onRequestPermission={requestNotificationPermission}
+          isLoading={isRequestingFCM}
+          fcmToken={fcmToken}
+          onSendTestNotification={handleSendTestPush}
+          isSendingTest={isSendingTestPush}
         />
       </main>
 
@@ -267,13 +261,3 @@ export default function HomePage() {
   );
 }
 
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
