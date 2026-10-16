@@ -9,7 +9,7 @@ const firebaseConfig = {
     process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL ||
     'https://deteksi-banjir-3b39c-default-rtdb.asia-southeast1.firebasedatabase.app',
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'deteksi-banjir-3b39c',
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'deteksi-banjir-3b39c.appspot.com',
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'deteksi-banjir-3b39c.firebasestorage.app',
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '514911417842',
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:514911417842:web:a830ab7e2f4d76e553676b',
 };
@@ -17,8 +17,8 @@ const firebaseConfig = {
 export const FIREBASE_DB_URL = firebaseConfig.databaseURL;
 
 export const FIREBASE_VAPID_KEY =
-  process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY ||
-  'BKUekbtOu0xQeILxjHZsb0xxFF8mxKiN-F3g2-zpK2tXBHsaGA8iHB-_VgTv4eeq56_K39c1f75vObbp1ipWn58';
+  (process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY ||
+  'BAzhBx6G1NaLexCR4KTE3s4wBxSNp251IbjKaZHeBsArphyUlfJmyEUZaVz2QSrQIiKHOMDZ28jj127eK_yfPNQ').trim();
 
 export const isFirebaseConfigured = Boolean(
   firebaseConfig.databaseURL && firebaseConfig.databaseURL.includes('deteksi-banjir-3b39c')

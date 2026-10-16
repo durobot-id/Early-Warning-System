@@ -38,6 +38,53 @@ interface EWSContextType {
   dismissForegroundAlert: () => void;
 }
 
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+async function registerLocalPushSubscription(): Promise<boolean> {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+    return false;
+  }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const res = await fetch('/api/push');
+    const { publicKey } = await res.json();
+    if (!publicKey) return false;
+
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    }
+
+    if (sub) {
+      await fetch('/api/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'subscribe',
+          subscription: sub,
+        }),
+      });
+      console.log('[WebPush] Perangkat berhasil terdaftar di server laptop!');
+      return true;
+    }
+  } catch (e) {
+    console.warn('[WebPush] Register subscription note:', e);
+  }
+  return false;
+}
+
 const EWSContext = createContext<EWSContextType | null>(null);
 
 export const EWSProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -93,10 +140,18 @@ export const EWSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Jika sudah diizinkan, coba ambil token FCM
     if (currentPerm === 'granted') {
+      registerLocalPushSubscription();
       requestFCMToken().then((res) => {
         if (res.token) {
           setFcmToken(res.token);
           setFcmError(null);
+          try {
+            fetch('https://asia-southeast1-deteksi-banjir-3b39c.cloudfunctions.net/subscribeToFloodAlerts', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token: res.token }),
+            }).catch(() => {});
+          } catch (e) {}
         } else if (res.error) {
           setFcmError(res.error);
         }
@@ -176,6 +231,7 @@ export const EWSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setFcmPermission(permission);
         if (permission === 'granted') {
           playAlertSound(false);
+          registerLocalPushSubscription();
         }
       }
 
@@ -184,6 +240,16 @@ export const EWSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setFcmToken(res.token);
         setFcmPermission('granted');
         setFcmError(null);
+
+        // Daftarkan token ke topik flood_alerts di Cloud Function
+        try {
+          fetch('https://asia-southeast1-deteksi-banjir-3b39c.cloudfunctions.net/subscribeToFloodAlerts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: res.token }),
+          }).catch(() => {});
+        } catch (e) {}
+
         return res.token;
       } else {
         if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -329,6 +395,22 @@ export const EWSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         dangerReason || `Ketinggian air naik ke ${currentWaterLevel} cm. Harap waspada dan siaga!`,
         true
       );
+
+      // Kirim push notification ke seluruh HP terdaftar via WebPush server lokal
+      try {
+        fetch('/api/push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'broadcast',
+            title: `Peringatan Dini: Status ${activeStatus.name} (${currentWaterLevel} cm)`,
+            message: dangerReason || `Ketinggian air naik ke ${currentWaterLevel} cm. Harap waspada dan siaga!`,
+            severity: 'danger',
+            water_level_cm: currentWaterLevel,
+            force: true,
+          }),
+        }).catch((e) => console.warn('[EWSContext] push broadcast error:', e));
+      } catch (err) {}
 
       lastAlarmRef.current = {
         isDanger: isDangerCondition,

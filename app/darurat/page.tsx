@@ -18,6 +18,7 @@ import { useEWS } from '@/lib/EWSContext';
 import { CalibrationModal } from '@/components/CalibrationModal';
 import { DeviceInfoCard } from '@/components/DeviceInfoCard';
 import { NotificationPermissionCard } from '@/components/NotificationPermission';
+import { OperatorBroadcastPanel } from '@/components/OperatorBroadcastPanel';
 
 export default function DaruratPage() {
   const { appData, isDangerCondition, dangerReason, activeStatus, currentWaterLevel, deviceState } = useEWS();
@@ -230,6 +231,9 @@ export default function DaruratPage() {
         <section className="space-y-2">
           <NotificationPermissionCard />
         </section>
+
+        {/* Panel Kontrol Operator / Presentasi untuk Broadcast ke HP Tertutup */}
+        <OperatorBroadcastPanel />
 
         {/* Informasi Alat & Sensor */}
         {appData && (

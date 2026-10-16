@@ -3,11 +3,15 @@ import {
   savePushSubscription,
   dispatchWebPush,
   shouldSendNotification,
+  getSubscriptionsCount,
 } from '@/lib/notification-service';
 
 export async function GET() {
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';
-  return NextResponse.json({ publicKey });
+  const publicKey =
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
+    'BEGI9yTkREPCrQDT6_MnKH5iKYD6TqakHY7LStUL12iE1dBHQV-iZFvAOUhu_pfygxRSXyddQNE2S6ceo6_oaKU';
+  const subscriberCount = getSubscriptionsCount();
+  return NextResponse.json({ publicKey, subscriberCount });
 }
 
 export async function POST(request: NextRequest) {

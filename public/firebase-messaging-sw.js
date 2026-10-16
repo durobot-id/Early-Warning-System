@@ -36,7 +36,7 @@ const firebaseConfig = {
   authDomain: "deteksi-banjir-3b39c.firebaseapp.com",
   databaseURL: "https://deteksi-banjir-3b39c-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "deteksi-banjir-3b39c",
-  storageBucket: "deteksi-banjir-3b39c.appspot.com",
+  storageBucket: "deteksi-banjir-3b39c.firebasestorage.app",
   messagingSenderId: "514911417842",
   appId: "1:514911417842:web:a830ab7e2f4d76e553676b"
 };
@@ -83,27 +83,42 @@ try {
   console.warn('Firebase messaging init in SW warning:', e);
 }
 
-// Fallback listener push umum jika payload raw
+// Listener Web Push saat aplikasi sedang ditutup / latar belakang
 self.addEventListener('push', (event) => {
-  if (!event.data) return;
-  try {
-    const raw = event.data.json();
-    if (raw.notification || raw.data) {
-      // Ditangani oleh messaging.onBackgroundMessage
-      return;
+  let title = 'Peringatan Dini Banjir EWS';
+  let body = 'Debit air sungai terdeteksi meningkat, harap waspada.';
+  let icon = '/icons/icon-192.png';
+  let badge = '/icons/icon-192.png';
+  let data = { url: '/' };
+
+  if (event.data) {
+    try {
+      const json = event.data.json();
+      title = json.title || json.notification?.title || title;
+      body = json.body || json.message || json.notification?.body || body;
+      icon = json.icon || icon;
+      badge = json.badge || badge;
+      data = json.data || data;
+    } catch (e) {
+      body = event.data.text() || body;
     }
-  } catch (err) {
-    // Pesan teks biasa
-    const text = event.data.text();
-    event.waitUntil(
-      self.registration.showNotification('Peringatan Dini EWS', {
-        body: text,
-        icon: '/icons/icon-192.png',
-        badge: '/icons/icon-192.png',
-        vibrate: [200, 100, 200],
-      })
-    );
   }
+
+  const options = {
+    body: body,
+    icon: icon,
+    badge: badge,
+    vibrate: [400, 200, 400, 200, 600],
+    tag: 'ews-flood-push',
+    renotify: true,
+    data: data,
+    actions: [
+      { action: 'open', title: 'Buka Pantauan' },
+      { action: 'close', title: 'Tutup' },
+    ],
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 // Listener klik notifikasi
