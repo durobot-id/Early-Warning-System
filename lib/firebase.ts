@@ -52,9 +52,9 @@ export async function getFCMInstance(): Promise<Messaging | null> {
 }
 
 /**
- * Mendaftarkan FCM Service Worker dan mengambil FCM Token perangkat
+ * Mendaftarkan Service Worker dan menghasilkan FCM Registration Token perangkat
  */
-export async function requestFCMToken(): Promise<{ token: string | null; error?: string }> {
+export async function requestFCMToken(forceRefresh: boolean = false): Promise<{ token: string | null; error?: string }> {
   if (typeof window === 'undefined') {
     return { token: null, error: 'Window tidak tersedia di environment server' };
   }
@@ -68,38 +68,50 @@ export async function requestFCMToken(): Promise<{ token: string | null; error?:
     return { token: null, error: 'Firebase Cloud Messaging tidak didukung pada browser ini' };
   }
 
+  // Jika sudah ada di cache dan tidak forceRefresh
+  if (!forceRefresh) {
+    try {
+      const cached = localStorage.getItem('ews_fcm_token');
+      if (cached && cached.length > 20) {
+        console.log('[FCM] Menggunakan token dari cache perangkat.');
+        return { token: cached };
+      }
+    } catch (e) {}
+  }
+
   try {
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
       return { token: null, error: 'Izin notifikasi ditolak oleh pengguna' };
     }
 
-    // Daftarkan service worker khusus FCM
-    let swRegistration: ServiceWorkerRegistration;
-    if ('serviceWorker' in navigator) {
-      swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-      await navigator.serviceWorker.ready;
-    } else {
+    if (!('serviceWorker' in navigator)) {
       return { token: null, error: 'Service Worker tidak didukung di browser ini' };
     }
 
+    // Daftarkan service worker khusus FCM
+    const swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    await navigator.serviceWorker.ready;
+
     const messaging = await getFCMInstance();
     if (!messaging) {
-      return { token: null, error: 'Gagal inisialisasi modul FCM Messaging' };
+      return { token: null, error: 'Gagal menginisialisasi modul FCM Messaging' };
     }
 
+    console.log('[FCM] Meminta token dari Firebase dengan VAPID key...');
     const token = await getToken(messaging, {
       vapidKey: FIREBASE_VAPID_KEY,
       serviceWorkerRegistration: swRegistration,
     });
 
     if (token) {
+      console.log('[FCM] Token berhasil dibuat:', token);
       try {
         localStorage.setItem('ews_fcm_token', token);
       } catch (e) {}
       return { token };
     } else {
-      return { token: null, error: 'Tidak dapat menghasilkan token FCM' };
+      return { token: null, error: 'Firebase tidak mengembalikan token perangkat' };
     }
   } catch (err: any) {
     console.error('Error saat request FCM token:', err);

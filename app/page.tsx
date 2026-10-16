@@ -36,41 +36,10 @@ export default function HomePage() {
     currentWaterLevel,
     previousWaterLevel,
     floodRadiusM,
-    fcmToken,
-    fcmPermission,
-    isRequestingFCM,
-    requestNotificationPermission,
   } = useEWS();
 
   // PWA State
   const [showInstallPrompt, setShowInstallPrompt] = useState<boolean>(false);
-  const [isSendingTestPush, setIsSendingTestPush] = useState<boolean>(false);
-
-  const handleSendTestPush = async () => {
-    try {
-      setIsSendingTestPush(true);
-      const res = await fetch('/api/push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'broadcast',
-          force: true,
-          title: 'Tes Peringatan EWS',
-          message: `Sistem pemantauan EWS ${appData?.info?.region_name || ''} berhasil terhubung ke perangkat Anda.`,
-          severity: 'warning',
-          water_level_cm: currentWaterLevel,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert('Notifikasi tes berhasil dikirim!');
-      }
-    } catch (e) {
-      alert('Gagal mengirimkan notifikasi tes.');
-    } finally {
-      setIsSendingTestPush(false);
-    }
-  };
 
 
   if (!appData) {
@@ -239,15 +208,8 @@ export default function HomePage() {
           </Link>
         </section>
 
-        {/* Prompt Izin Push Alert FCM jika belum aktif atau informasi status token */}
-        <NotificationPermissionCard
-          permission={fcmPermission}
-          onRequestPermission={requestNotificationPermission}
-          isLoading={isRequestingFCM}
-          fcmToken={fcmToken}
-          onSendTestNotification={handleSendTestPush}
-          isSendingTest={isSendingTestPush}
-        />
+        {/* Pengaturan Izin & Token FCM */}
+        <NotificationPermissionCard />
       </main>
 
       {/* Modal Install PWA */}

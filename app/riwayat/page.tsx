@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Activity, Bell, TrendingUp, Send, Clock, BarChart2 } from 'lucide-react';
 import { useEWS } from '@/lib/EWSContext';
 import { WaterChart } from '@/components/WaterChart';
@@ -8,7 +8,6 @@ import { NotificationHistory } from '@/components/NotificationHistory';
 
 export default function RiwayatPage() {
   const { appData, currentWaterLevel } = useEWS();
-  const [isSendingTestPush, setIsSendingTestPush] = useState<boolean>(false);
 
   if (!appData) {
     return (
@@ -27,32 +26,6 @@ export default function RiwayatPage() {
     history.length > 0
       ? Math.round((history.reduce((acc, h) => acc + h.water_level_cm, 0) / history.length) * 10) / 10
       : currentWaterLevel;
-
-  const handleSendTestPush = async () => {
-    try {
-      setIsSendingTestPush(true);
-      const res = await fetch('/api/push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'broadcast',
-          force: true,
-          title: 'Tes Peringatan EWS',
-          message: `Sistem pemantauan EWS ${appData?.info?.region_name || ''} berhasil terhubung ke perangkat Anda.`,
-          severity: 'warning',
-          water_level_cm: currentWaterLevel,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert('Notifikasi tes berhasil dikirim ke perangkat Anda!');
-      }
-    } catch (e) {
-      alert('Gagal mengirimkan notifikasi tes.');
-    } finally {
-      setIsSendingTestPush(false);
-    }
-  };
 
   const siagaThreshold =
     appData.statuses.find((s) => s.name.toLowerCase().includes('siaga'))?.min_cm || 20;
@@ -106,11 +79,7 @@ export default function RiwayatPage() {
 
         {/* Riwayat Notifikasi */}
         <section aria-label="Riwayat Notifikasi">
-          <NotificationHistory
-            notifications={appData.notifications}
-            onSendTestNotification={handleSendTestPush}
-            isSendingTest={isSendingTestPush}
-          />
+          <NotificationHistory notifications={appData.notifications} />
         </section>
       </main>
     </div>

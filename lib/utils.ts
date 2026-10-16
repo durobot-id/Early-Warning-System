@@ -58,3 +58,36 @@ export function formatCoordinate(val?: number): string {
   if (val === undefined || isNaN(val)) return "Tidak tersedia";
   return val.toFixed(5);
 }
+
+/**
+ * Memainkan suara alarm peringatan menggunakan Web Audio API tanpa file audio eksternal
+ */
+export function playAlertSound(isEmergency: boolean = false) {
+  if (typeof window === 'undefined') return;
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = isEmergency ? 'sawtooth' : 'sine';
+    osc.frequency.setValueAtTime(isEmergency ? 880 : 660, now);
+    osc.frequency.setValueAtTime(isEmergency ? 440 : 880, now + 0.15);
+    osc.frequency.setValueAtTime(isEmergency ? 880 : 660, now + 0.3);
+
+    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.55);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.55);
+  } catch (e) {
+    // Kebijakan audio browser mungkin memerlukan gestur pengguna pertama kali
+  }
+}
+

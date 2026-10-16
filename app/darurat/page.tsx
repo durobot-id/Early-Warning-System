@@ -20,46 +20,7 @@ import { DeviceInfoCard } from '@/components/DeviceInfoCard';
 import { NotificationPermissionCard } from '@/components/NotificationPermission';
 
 export default function DaruratPage() {
-  const {
-    appData,
-    isDangerCondition,
-    dangerReason,
-    activeStatus,
-    currentWaterLevel,
-    deviceState,
-    fcmToken,
-    fcmPermission,
-    isRequestingFCM,
-    requestNotificationPermission,
-  } = useEWS();
-
-  const [isSendingTestPush, setIsSendingTestPush] = useState<boolean>(false);
-
-  const handleSendTestPush = async () => {
-    try {
-      setIsSendingTestPush(true);
-      const res = await fetch('/api/push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'broadcast',
-          force: true,
-          title: 'Tes Peringatan Darurat EWS',
-          message: `Sistem EWS ${appData?.info?.region_name || ''} siap menyiarkan peringatan darurat ke HP Anda.`,
-          severity: 'danger',
-          water_level_cm: currentWaterLevel,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert('Notifikasi darurat tes berhasil dikirim!');
-      }
-    } catch (e) {
-      alert('Gagal mengirimkan notifikasi tes.');
-    } finally {
-      setIsSendingTestPush(false);
-    }
-  };
+  const { appData, isDangerCondition, dangerReason, activeStatus, currentWaterLevel, deviceState } = useEWS();
 
   // State Kalibrasi
   const [isCalibrationModalOpen, setIsCalibrationModalOpen] = useState<boolean>(false);
@@ -267,14 +228,7 @@ export default function DaruratPage() {
 
         {/* Pengaturan & Token Peringatan Siaga FCM */}
         <section className="space-y-2">
-          <NotificationPermissionCard
-            permission={fcmPermission}
-            onRequestPermission={requestNotificationPermission}
-            isLoading={isRequestingFCM}
-            fcmToken={fcmToken}
-            onSendTestNotification={handleSendTestPush}
-            isSendingTest={isSendingTestPush}
-          />
+          <NotificationPermissionCard />
         </section>
 
         {/* Informasi Alat & Sensor */}
