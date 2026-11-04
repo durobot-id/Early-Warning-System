@@ -29,8 +29,8 @@ export const InstallPwaPrompt: React.FC<InstallPwaPromptProps> = ({
           <X className="w-4 h-4" />
         </button>
 
-        <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4">
-          <Smartphone className="w-6 h-6" />
+        <div className="w-12 h-12 rounded-xl overflow-hidden shadow-xs mb-4 border border-slate-200/60">
+          <img src="/icons/icon-192.png" alt="Logo EWS" className="w-12 h-12 object-contain" />
         </div>
 
         <h3 className="text-base font-bold text-slate-900">

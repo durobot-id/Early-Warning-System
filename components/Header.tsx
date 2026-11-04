@@ -26,8 +26,8 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
         {/* Logo & Judul */}
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-blue-400 flex items-center justify-center text-white shadow-sm shadow-blue-500/20">
-            <Waves className="w-5 h-5" />
+          <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center shadow-xs shrink-0 border border-slate-200/60">
+            <img src="/icons/icon-192.png" alt="Logo EWS" className="w-9 h-9 object-contain" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
