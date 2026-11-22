@@ -16,6 +16,24 @@ export async function POST(request: NextRequest) {
       // Body kosong / bukan JSON tetap valid untuk kalibrasi normal
     }
 
+    // Jika koordinat belum didapat dari browser (misal izin ditolak / HTTP non-secure), coba fallback IP Geolocation
+    if (!coordinates) {
+      try {
+        const ipRes = await fetch('http://ip-api.com/json/');
+        if (ipRes.ok) {
+          const ipData = await ipRes.json();
+          if (ipData.status === 'success' && typeof ipData.lat === 'number' && typeof ipData.lon === 'number') {
+            coordinates = {
+              latitude: ipData.lat,
+              longitude: ipData.lon,
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('Server IP geolocation fallback warning:', err);
+      }
+    }
+
     const result = await triggerSensorCalibration(coordinates);
     return NextResponse.json(result);
   } catch (error: any) {

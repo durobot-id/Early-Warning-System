@@ -28,32 +28,54 @@ export default function DaruratPage() {
   >('idle');
   const [calibrationMsg, setCalibrationMsg] = useState<string>('');
 
-  // Ambil koordinat GPS lokasi pengguna saat ini
-  const getUserCoordinates = (): Promise<{ latitude: number; longitude: number } | null> => {
-    return new Promise((resolve) => {
-      if (typeof window === 'undefined' || !navigator.geolocation) {
-        resolve(null);
-        return;
+  // Ambil koordinat GPS lokasi pengguna saat ini (dengan fallback bertingkat)
+  const getUserCoordinates = async (): Promise<{ latitude: number; longitude: number } | null> => {
+    // 1. Coba browser Geolocation API
+    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+      const getBrowserPos = (highAccuracy: boolean): Promise<{ latitude: number; longitude: number } | null> => {
+        return new Promise((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              resolve({
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+              });
+            },
+            () => resolve(null),
+            { enableHighAccuracy: highAccuracy, timeout: 5000, maximumAge: 10000 }
+          );
+        });
+      };
+
+      // Coba akurasi standar (cepat dan stabil di jaringan Wi-Fi/seluler)
+      let coords = await getBrowserPos(false);
+      if (coords) return coords;
+
+      // Coba akurasi tinggi (jika GPS perangkat aktif)
+      coords = await getBrowserPos(true);
+      if (coords) return coords;
+    }
+
+    // 2. Fallback via IP Geolocation jika GPS browser ditolak atau diakses via non-HTTPS
+    try {
+      const ipRes = await fetch('http://ip-api.com/json/').catch(() => null);
+      if (ipRes && ipRes.ok) {
+        const ipData = await ipRes.json();
+        if (ipData.status === 'success' && typeof ipData.lat === 'number' && typeof ipData.lon === 'number') {
+          return {
+            latitude: ipData.lat,
+            longitude: ipData.lon,
+          };
+        }
       }
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          resolve({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          });
-        },
-        (err) => {
-          console.warn('Geolocation warning (izin ditolak atau timeout):', err);
-          resolve(null);
-        },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-      );
-    });
+    } catch (e) {}
+
+    return null;
   };
 
   const handleTriggerCalibration = async () => {
     setCalibrationStatus('processing');
-    setCalibrationMsg('Mendeteksi lokasi GPS dan mengirim perintah kalibrasi...');
+    setCalibrationMsg('Memproses kalibrasi sensor...');
     try {
       const coords = await getUserCoordinates();
       const res = await fetch('/api/calibration', {
@@ -67,7 +89,7 @@ export default function DaruratPage() {
       const data = await res.json();
       if (data.success) {
         setCalibrationStatus('success');
-        setCalibrationMsg(data.message || 'Sensor berhasil dikalibrasi!');
+        setCalibrationMsg('Perintah kalibrasi berhasil dikirim');
       } else {
         setCalibrationStatus('failed');
         setCalibrationMsg(data.message || 'Sensor gagal merespons');

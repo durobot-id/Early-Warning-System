@@ -46,7 +46,7 @@ export const CalibrationModal: React.FC<CalibrationModalProps> = ({
         {status === 'success' && (
           <div className="my-4 p-3 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center gap-2.5 text-xs font-semibold text-emerald-700">
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-            <span>{statusMessage || 'Kalibrasi berhasil! Sensor telah diperbarui.'}</span>
+            <span>{statusMessage || 'Perintah kalibrasi berhasil dikirim'}</span>
           </div>
         )}
 

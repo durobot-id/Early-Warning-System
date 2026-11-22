@@ -338,13 +338,9 @@ export async function triggerSensorCalibration(coordinates?: {
     });
 
     if (res.ok) {
-      const message = coordsUpdated
-        ? `Perintah kalibrasi berhasil dikirim dan posisi GPS diperbarui ke (${coordinates?.latitude.toFixed(6)}, ${coordinates?.longitude.toFixed(6)})!`
-        : 'Perintah kalibrasi berhasil dikirim ke sensor (/config/calibrate = true)!';
-
       return {
         success: true,
-        message,
+        message: 'Perintah kalibrasi berhasil dikirim',
         coordinatesUpdated: coordsUpdated,
       };
     }
@@ -361,13 +357,9 @@ export async function triggerSensorCalibration(coordinates?: {
         calibrate_status: 'processing',
       });
 
-      const message = coordsUpdated
-        ? `Perintah kalibrasi berhasil dikirim dan posisi GPS diperbarui ke (${coordinates?.latitude.toFixed(6)}, ${coordinates?.longitude.toFixed(6)})!`
-        : 'Perintah kalibrasi berhasil dikirim ke sensor!';
-
       return {
         success: true,
-        message,
+        message: 'Perintah kalibrasi berhasil dikirim',
         coordinatesUpdated: coordsUpdated,
       };
     } catch (error: any) {
