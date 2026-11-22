@@ -36,6 +36,19 @@ export interface FirebaseInfo {
   longitude: number;
   region_name: string;
   kemiringan: number;
+  weather?: {
+    condition: string;
+    temperature: number;
+    humidity: number;
+    rainfall: number;
+    wind_speed: number;
+    wind_direction: string;
+    updated_at: string;
+  };
+  cuaca?: string;
+  suhu?: number;
+  kelembaban?: number;
+  curah_hujan?: number;
 }
 
 export interface FirebaseHistoryItem {

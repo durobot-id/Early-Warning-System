@@ -8,6 +8,7 @@ import {
   HistoryPoint,
   EWSNotification,
   DeviceOnlineState,
+  WeatherData,
 } from './types';
 import { DEFAULT_STATUS_CONFIGS } from './status-service';
 
@@ -82,11 +83,16 @@ export function subscribeToEWSData(callback: (data: EWSAppData) => void): () => 
 
     // 3. Info (sesuai struktur Firebase info)
     const info: FirebaseInfo = {
-      bmkg_adm4: val.info?.bmkg_adm4 || '32.01.24',
-      latitude: Number(val.info?.latitude ?? -6.68),
-      longitude: Number(val.info?.longitude ?? 106.9383),
-      region_name: val.info?.region_name || 'Cisarua',
+      bmkg_adm4: val.info?.bmkg_adm4 || '35.78.27.1005',
+      latitude: Number(val.info?.latitude ?? -7.2674687),
+      longitude: Number(val.info?.longitude ?? 112.7088787),
+      region_name: val.info?.region_name || 'Surabaya',
       kemiringan: Number(val.info?.kemiringan ?? 10.5),
+      weather: val.info?.weather,
+      cuaca: val.info?.cuaca,
+      suhu: val.info?.suhu ? Number(val.info.suhu) : undefined,
+      kelembaban: val.info?.kelembaban ? Number(val.info.kelembaban) : undefined,
+      curah_hujan: val.info?.curah_hujan ? Number(val.info.curah_hujan) : undefined,
     };
 
     // 4. Live (sesuai struktur Firebase live)
@@ -219,9 +225,108 @@ export function subscribeToEWSData(callback: (data: EWSAppData) => void): () => 
 }
 
 /**
- * Trigger proses kalibrasi ke Firebase /config/calibrate = true
+ * Mengirim dan menyimpan data cuaca BMKG terkini ke struktur /info di Firebase RTDB
  */
-export async function triggerSensorCalibration(): Promise<{ success: boolean; message: string }> {
+export async function updateFirebaseWeatherInfo(weather: WeatherData): Promise<boolean> {
+  try {
+    const payload = {
+      weather: {
+        condition: weather.condition,
+        temperature: weather.temperature,
+        humidity: weather.humidity,
+        rainfall: weather.rainfall ?? 0,
+        wind_speed: weather.windSpeed,
+        wind_direction: weather.windDirection,
+        updated_at: weather.updatedAt || new Date().toISOString(),
+      },
+      cuaca: weather.condition,
+      suhu: weather.temperature,
+      kelembaban: weather.humidity,
+      curah_hujan: weather.rainfall ?? 0,
+    };
+
+    const res = await fetch(`${FIREBASE_DB_URL}/info.json`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    return res.ok;
+  } catch (err) {
+    console.warn('Failed to update weather in Firebase info via REST:', err);
+  }
+
+  // Fallback via Web SDK jika ada
+  if (db) {
+    try {
+      const infoRef = ref(db, 'info');
+      await update(infoRef, {
+        weather: {
+          condition: weather.condition,
+          temperature: weather.temperature,
+          humidity: weather.humidity,
+          rainfall: weather.rainfall ?? 0,
+          wind_speed: weather.windSpeed,
+          wind_direction: weather.windDirection,
+          updated_at: weather.updatedAt || new Date().toISOString(),
+        },
+        cuaca: weather.condition,
+        suhu: weather.temperature,
+        kelembaban: weather.humidity,
+        curah_hujan: weather.rainfall ?? 0,
+      });
+      return true;
+    } catch (err) {
+      console.warn('Failed to update weather in Firebase info via SDK:', err);
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Trigger proses kalibrasi ke Firebase /config/calibrate = true
+ * dan memperbarui koordinat posisi GPS pengguna ke /info (latitude & longitude) jika tersedia
+ */
+export async function triggerSensorCalibration(coordinates?: {
+  latitude: number;
+  longitude: number;
+}): Promise<{ success: boolean; message: string; coordinatesUpdated?: boolean }> {
+  let coordsUpdated = false;
+
+  // 1. Simpan koordinat posisi GPS terkini pengguna ke /info jika dikirimkan
+  if (coordinates && typeof coordinates.latitude === 'number' && typeof coordinates.longitude === 'number') {
+    try {
+      const infoRes = await fetch(`${FIREBASE_DB_URL}/info.json`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude,
+        }),
+      });
+      if (infoRes.ok) {
+        coordsUpdated = true;
+      }
+    } catch (e) {
+      console.warn('Failed to update coordinates to Firebase /info via REST:', e);
+    }
+
+    if (!coordsUpdated && db) {
+      try {
+        const infoRef = ref(db, 'info');
+        await update(infoRef, {
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude,
+        });
+        coordsUpdated = true;
+      } catch (e) {
+        console.warn('Failed to update coordinates to Firebase /info via SDK:', e);
+      }
+    }
+  }
+
+  // 2. Kirim perintah kalibrasi sensor ke /config
   try {
     const res = await fetch(`${FIREBASE_DB_URL}/config.json`, {
       method: 'PATCH',
@@ -233,7 +338,15 @@ export async function triggerSensorCalibration(): Promise<{ success: boolean; me
     });
 
     if (res.ok) {
-      return { success: true, message: 'Perintah kalibrasi berhasil dikirim ke sensor (/config/calibrate = true)' };
+      const message = coordsUpdated
+        ? `Perintah kalibrasi berhasil dikirim dan posisi GPS diperbarui ke (${coordinates?.latitude.toFixed(6)}, ${coordinates?.longitude.toFixed(6)})!`
+        : 'Perintah kalibrasi berhasil dikirim ke sensor (/config/calibrate = true)!';
+
+      return {
+        success: true,
+        message,
+        coordinatesUpdated: coordsUpdated,
+      };
     }
   } catch (error: any) {
     console.error('Calibration trigger error:', error);
@@ -247,7 +360,16 @@ export async function triggerSensorCalibration(): Promise<{ success: boolean; me
         calibrate: true,
         calibrate_status: 'processing',
       });
-      return { success: true, message: 'Perintah kalibrasi berhasil dikirim ke sensor' };
+
+      const message = coordsUpdated
+        ? `Perintah kalibrasi berhasil dikirim dan posisi GPS diperbarui ke (${coordinates?.latitude.toFixed(6)}, ${coordinates?.longitude.toFixed(6)})!`
+        : 'Perintah kalibrasi berhasil dikirim ke sensor!';
+
+      return {
+        success: true,
+        message,
+        coordinatesUpdated: coordsUpdated,
+      };
     } catch (error: any) {
       return { success: false, message: error?.message || 'Gagal mengirim perintah kalibrasi' };
     }

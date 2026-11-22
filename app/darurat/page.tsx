@@ -28,10 +28,42 @@ export default function DaruratPage() {
   >('idle');
   const [calibrationMsg, setCalibrationMsg] = useState<string>('');
 
+  // Ambil koordinat GPS lokasi pengguna saat ini
+  const getUserCoordinates = (): Promise<{ latitude: number; longitude: number } | null> => {
+    return new Promise((resolve) => {
+      if (typeof window === 'undefined' || !navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          resolve({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          });
+        },
+        (err) => {
+          console.warn('Geolocation warning (izin ditolak atau timeout):', err);
+          resolve(null);
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      );
+    });
+  };
+
   const handleTriggerCalibration = async () => {
     setCalibrationStatus('processing');
+    setCalibrationMsg('Mendeteksi lokasi GPS dan mengirim perintah kalibrasi...');
     try {
-      const res = await fetch('/api/calibration', { method: 'POST' });
+      const coords = await getUserCoordinates();
+      const res = await fetch('/api/calibration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          latitude: coords?.latitude,
+          longitude: coords?.longitude,
+        }),
+      });
       const data = await res.json();
       if (data.success) {
         setCalibrationStatus('success');
@@ -253,7 +285,7 @@ export default function DaruratPage() {
                 Kalibrasi Sensor Ketinggian
               </h4>
               <p className="text-xs text-slate-500">
-                Kirim perintah <code>/config/calibrate = true</code> ke sensor di lapangan untuk penyesuaian titik nol.
+                Kirim perintah <code>/config/calibrate = true</code> ke sensor di lapangan dan perbarui koordinat GPS lokasi sensor di Firebase.
               </p>
             </div>
           </div>

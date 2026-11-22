@@ -298,9 +298,9 @@ export const EWSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     async function loadWeather() {
       try {
         setIsWeatherLoading(true);
-        const lat = appData?.info?.latitude ?? -6.68;
-        const lon = appData?.info?.longitude ?? 106.9383;
-        const region = appData?.info?.region_name ?? 'Cisarua';
+        const lat = appData?.info?.latitude ?? -7.2674687;
+        const lon = appData?.info?.longitude ?? 112.7088787;
+        const region = appData?.info?.region_name ?? 'Surabaya';
         const res = await fetch(`/api/weather?lat=${lat}&lon=${lon}&region=${encodeURIComponent(region)}`);
         const json = await res.json();
         if (json.success && json.data) {

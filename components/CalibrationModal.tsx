@@ -32,14 +32,14 @@ export const CalibrationModal: React.FC<CalibrationModalProps> = ({
         </h3>
 
         <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-          Pastikan kondisi fisik sensor dan batas nol telah sesuai dengan level permukaan sebelum memulai kalibrasi.
+          Kalibrasi akan menyetel titik nol sensor serta memperbarui koordinat posisi sensor (latitude & longitude) di Firebase ke lokasi GPS Anda saat ini.
         </p>
 
         {/* Status display */}
         {status === 'processing' && (
           <div className="my-4 p-3 rounded-xl bg-blue-50 border border-blue-100 flex items-center gap-2.5 text-xs font-semibold text-blue-700">
             <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-            <span>Sedang melakukan kalibrasi pada sensor...</span>
+            <span>{statusMessage || 'Sedang mendeteksi GPS dan memproses kalibrasi sensor...'}</span>
           </div>
         )}
 
